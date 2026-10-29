@@ -10,7 +10,8 @@ import {
   RefreshCw, 
   Trash2, 
   CheckCircle2, 
-  Sliders
+  Sliders,
+  LogOut
 } from 'lucide-react';
 import { UserProfile } from '../../types';
 
@@ -20,6 +21,7 @@ interface SettingsViewProps {
   onUpdateCurrency: (c: string) => void;
   onResetData: () => void;
   onOpenAuth: () => void;
+  onLogout: () => void;
   isDemoMode: boolean;
 }
 
@@ -29,6 +31,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onUpdateCurrency,
   onResetData,
   onOpenAuth,
+  onLogout,
   isDemoMode,
 }) => {
   const [savedMessage, setSavedMessage] = useState('');
@@ -85,12 +88,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onOpenAuth}
-            className="px-4 py-2 text-xs font-bold rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
-          >
-            {isDemoMode ? 'Switch to Personal Account' : 'Account Security'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onOpenAuth}
+              className="px-4 py-2 text-xs font-bold rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors flex items-center gap-1.5"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+              {isDemoMode ? 'Switch to Personal Account' : 'Account Security'}
+            </button>
+            {!isDemoMode && (
+              <button
+                onClick={() => {
+                  if (confirm(`Sign out of ${user.email || user.full_name}?`)) {
+                    onLogout();
+                  }
+                }}
+                className="px-3.5 py-2 text-xs font-bold rounded-full bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 border border-rose-200/50 dark:border-rose-800/50 transition-colors flex items-center gap-1.5"
+                title="Sign out of your personal account"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Sign Out
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">

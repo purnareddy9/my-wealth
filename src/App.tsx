@@ -500,6 +500,7 @@ export function App() {
                 onUpdateCurrency={setCurrency}
                 onResetData={handleResetData}
                 onOpenAuth={() => setIsAuthOpen(true)}
+                onLogout={handleLogout}
                 isDemoMode={isDemoMode}
               />
             )}
@@ -532,7 +533,9 @@ export function App() {
         onClose={() => setIsAuthOpen(false)}
         onSuccess={handleAuthSuccess}
         onSwitchToDemo={handleSwitchToDemo}
+        onLogout={handleLogout}
         isDemoMode={isDemoMode}
+        user={user}
       />
     </div>
   );
