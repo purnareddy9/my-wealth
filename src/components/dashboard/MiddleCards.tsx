@@ -89,25 +89,39 @@ export const MiddleCards: React.FC<MiddleCardsProps> = ({
       {cards.map((card) => {
         const Icon = card.icon;
 
+        const isCompact = card.amount >= 1000000;
+        const displayAmount = isCompact
+          ? formatCurrency(card.amount, currency, true)
+          : formatCurrency(card.amount, currency);
+
         return (
           <div
             key={card.id}
             onClick={card.onClick}
-            className="glass-card glass-card-hover rounded-3xl p-4 sm:p-5 flex flex-col justify-between cursor-pointer group min-h-[148px]"
+            className="glass-card glass-card-hover rounded-3xl p-4 sm:p-5 flex flex-col justify-between cursor-pointer group min-h-[148px] overflow-hidden"
           >
-            <div>
+            <div className="overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-800 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                <span className="text-sm font-bold text-slate-800 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors truncate pr-2">
                   {card.title}
                 </span>
-                <div className={`w-7 h-7 rounded-full ${card.bgColor} ${card.color} flex items-center justify-center`}>
+                <div className={`w-7 h-7 rounded-full ${card.bgColor} ${card.color} flex items-center justify-center flex-shrink-0`}>
                   <Icon className="w-3.5 h-3.5" />
                 </div>
               </div>
 
-              <div className="mt-2">
-                <div className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-50 tracking-tight">
-                  {formatCurrency(card.amount, currency)}
+              <div className="mt-2 overflow-hidden">
+                <div 
+                  title={formatCurrency(card.amount, currency)}
+                  className={`font-black text-slate-800 dark:text-slate-50 tracking-tight truncate ${
+                    card.amount >= 10000000
+                      ? 'text-lg sm:text-xl'
+                      : card.amount >= 1000000
+                      ? 'text-xl sm:text-2xl'
+                      : 'text-xl sm:text-2xl'
+                  }`}
+                >
+                  {displayAmount}
                 </div>
                 <div className="text-[11px] text-slate-400 dark:text-slate-400 font-medium truncate">
                   {card.institution}

@@ -86,28 +86,37 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
 
       {/* Summary Chips */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="glass-card rounded-2xl p-4">
+        <div className="glass-card rounded-2xl p-4 overflow-hidden">
           <span className="text-[11px] font-semibold text-slate-400">Total Assets</span>
-          <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+          <div 
+            title={formatCurrency(totalAssets, currency)}
+            className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5 truncate"
+          >
             {formatCurrency(totalAssets, currency)}
           </div>
-          <span className="text-[10px] text-slate-400">{assets.length} active asset accounts</span>
+          <span className="text-[10px] text-slate-400 truncate block">{assets.length} active asset accounts</span>
         </div>
 
-        <div className="glass-card rounded-2xl p-4">
+        <div className="glass-card rounded-2xl p-4 overflow-hidden">
           <span className="text-[11px] font-semibold text-slate-400">Total Liabilities</span>
-          <div className="text-2xl font-black text-rose-500 dark:text-rose-400 mt-0.5">
+          <div 
+            title={formatCurrency(totalLiab, currency)}
+            className="text-2xl font-black text-rose-500 dark:text-rose-400 mt-0.5 truncate"
+          >
             {formatCurrency(totalLiab, currency)}
           </div>
-          <span className="text-[10px] text-slate-400">{liabilities.length} active debts / EMIs</span>
+          <span className="text-[10px] text-slate-400 truncate block">{liabilities.length} active debts / EMIs</span>
         </div>
 
-        <div className="glass-card rounded-2xl p-4">
+        <div className="glass-card rounded-2xl p-4 overflow-hidden">
           <span className="text-[11px] font-semibold text-slate-400">Current Net Worth</span>
-          <div className="text-2xl font-black text-slate-800 dark:text-slate-100 mt-0.5">
+          <div 
+            title={formatCurrency(netWorth, currency)}
+            className="text-2xl font-black text-slate-800 dark:text-slate-100 mt-0.5 truncate"
+          >
             {formatCurrency(netWorth, currency)}
           </div>
-          <span className="text-[10px] text-amber-600 font-semibold">Assets minus Liabilities</span>
+          <span className="text-[10px] text-amber-600 font-semibold truncate block">Assets minus Liabilities</span>
         </div>
       </div>
 

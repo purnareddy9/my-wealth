@@ -77,8 +77,17 @@ export const TopSummaryRow: React.FC<TopSummaryRowProps> = ({
           </div>
 
           {/* Big number matching 09:00 with 19°C pill from reference */}
-          <div className="mt-3.5 flex items-baseline gap-3 flex-wrap">
-            <h2 className="text-3xl sm:text-4xl lg:text-[42px] font-extrabold tracking-tight text-slate-800 dark:text-slate-50">
+          <div className="mt-3.5 flex items-baseline gap-3 flex-wrap overflow-hidden">
+            <h2 
+              title={formatCurrency(summary.netWorth, currency)}
+              className={`font-extrabold tracking-tight text-slate-800 dark:text-slate-50 truncate max-w-full ${
+                Math.abs(summary.netWorth) >= 100000000
+                  ? 'text-2xl sm:text-3xl lg:text-3xl'
+                  : Math.abs(summary.netWorth) >= 10000000
+                  ? 'text-2xl sm:text-3xl lg:text-[38px]'
+                  : 'text-3xl sm:text-4xl lg:text-[42px]'
+              }`}
+            >
               {formatCurrency(summary.netWorth, currency)}
             </h2>
             
