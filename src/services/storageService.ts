@@ -72,7 +72,30 @@ export const storageService = {
     if (isDemo) return DEMO_ACCOUNTS;
     try {
       const saved = localStorage.getItem(`mw_accounts_${userId}`);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+
+      // Recovery check: Look for any accounts stored under email-based key or previous keys!
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('mw_accounts_') && key !== 'mw_accounts_demo_user' && key !== `mw_accounts_${userId}`) {
+          const fallbackData = localStorage.getItem(key);
+          if (fallbackData) {
+            try {
+              const parsed = JSON.parse(fallbackData);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                console.log(`[Storage] Recovered ${parsed.length} accounts from previous key: ${key}`);
+                this.saveAccounts(userId, parsed, false);
+                return parsed;
+              }
+            } catch {
+              // ignore parse errors
+            }
+          }
+        }
+      }
     } catch (e) {
       console.error('Error loading accounts', e);
     }
@@ -94,7 +117,26 @@ export const storageService = {
     if (isDemo) return DEMO_HOLDINGS;
     try {
       const saved = localStorage.getItem(`mw_holdings_${userId}`);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('mw_holdings_') && key !== 'mw_holdings_demo_user' && key !== `mw_holdings_${userId}`) {
+          const fallbackData = localStorage.getItem(key);
+          if (fallbackData) {
+            try {
+              const parsed = JSON.parse(fallbackData);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                this.saveHoldings(userId, parsed, false);
+                return parsed;
+              }
+            } catch {}
+          }
+        }
+      }
     } catch (e) {
       console.error('Error loading holdings', e);
     }
@@ -115,7 +157,26 @@ export const storageService = {
     if (isDemo) return DEMO_TRANSACTIONS;
     try {
       const saved = localStorage.getItem(`mw_transactions_${userId}`);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('mw_transactions_') && key !== 'mw_transactions_demo_user' && key !== `mw_transactions_${userId}`) {
+          const fallbackData = localStorage.getItem(key);
+          if (fallbackData) {
+            try {
+              const parsed = JSON.parse(fallbackData);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                this.saveTransactions(userId, parsed, false);
+                return parsed;
+              }
+            } catch {}
+          }
+        }
+      }
     } catch (e) {
       console.error('Error loading transactions', e);
     }

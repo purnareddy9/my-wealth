@@ -43,7 +43,7 @@ import {
   calculateNetWorthSummary,
   calculateAssetAllocation,
 } from './utils/calculations';
-import { supabase, isSupabaseConfigured } from './services/supabase';
+import { supabase, isSupabaseConfigured, generateUUID, isValidUUID } from './services/supabase';
 import { storageService } from './services/storageService';
 
 export function App() {
@@ -117,6 +117,87 @@ export function App() {
     }
   }, [theme]);
 
+  // Two-way synchronization with Supabase cloud
+  const syncCloudData = async (userId: string) => {
+    if (!isSupabaseConfigured || !supabase) return;
+
+    try {
+      // 1. Fetch Accounts
+      const { data: cloudAccounts, error: accError } = await supabase
+        .from('financial_accounts')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (!accError && cloudAccounts) {
+        if (cloudAccounts.length > 0) {
+          // Cloud has accounts! Update state and cache locally
+          setAccounts(cloudAccounts);
+          storageService.saveAccounts(userId, cloudAccounts, false);
+        } else {
+          // Cloud is connected but table has 0 accounts for this user.
+          // Check if local storage has accounts that should be synced up!
+          const localAccounts = storageService.getAccounts(userId, false);
+          if (localAccounts.length > 0) {
+            console.log(`[CloudSync] Syncing ${localAccounts.length} local accounts to Supabase...`);
+            const payloads = localAccounts.map((a) => ({
+              id: isValidUUID(a.id) ? a.id : generateUUID(),
+              user_id: userId,
+              name: a.name,
+              institution: a.institution,
+              account_type: a.account_type,
+              category: a.category,
+              currency: a.currency || 'INR',
+              opening_date: a.opening_date,
+              initial_balance: Number(a.initial_balance || 0),
+              current_balance: Number(a.current_balance || 0),
+              is_liability: Boolean(a.is_liability),
+              interest_rate: a.interest_rate || null,
+              account_number_mask: a.account_number_mask || null,
+              is_archived: false,
+              last_updated: a.last_updated || new Date().toISOString(),
+            }));
+
+            const { error: upsertErr } = await supabase.from('financial_accounts').upsert(payloads);
+            if (!upsertErr) {
+              console.log('[CloudSync] Local accounts uploaded successfully to Supabase cloud!');
+              setAccounts(payloads as FinancialAccount[]);
+              storageService.saveAccounts(userId, payloads as FinancialAccount[], false);
+            } else {
+              console.error('[CloudSync] Upsert error:', upsertErr);
+            }
+          }
+        }
+      } else if (accError) {
+        console.warn('[CloudSync] Accounts query error:', accError);
+      }
+
+      // 2. Fetch Transactions
+      const { data: cloudTx, error: txError } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('transaction_date', { ascending: false });
+
+      if (!txError && cloudTx && cloudTx.length > 0) {
+        setTransactions(cloudTx);
+        storageService.saveTransactions(userId, cloudTx, false);
+      }
+
+      // 3. Fetch Holdings
+      const { data: cloudHoldings, error: holdError } = await supabase
+        .from('holdings')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (!holdError && cloudHoldings && cloudHoldings.length > 0) {
+        setHoldings(cloudHoldings);
+        storageService.saveHoldings(userId, cloudHoldings, false);
+      }
+    } catch (e) {
+      console.warn('[CloudSync] Background sync exception:', e);
+    }
+  };
+
   // Check for Supabase session on startup & sync with cloud
   useEffect(() => {
     if (isSupabaseConfigured && supabase) {
@@ -137,13 +218,8 @@ export function App() {
           setUser(loggedInUser);
           setIsDemoMode(false);
 
-          // Load cloud accounts
-          supabase.from('financial_accounts').select('*').eq('user_id', u.id).then(({ data }) => {
-            if (data) {
-              setAccounts(data);
-              storageService.saveAccounts(u.id, data, false);
-            }
-          });
+          // Perform safe two-way sync
+          syncCloudData(u.id);
         }
       });
 
@@ -163,6 +239,7 @@ export function App() {
           storageService.setActiveUser(loggedInUser, false);
           setUser(loggedInUser);
           setIsDemoMode(false);
+          syncCloudData(u.id);
         }
       });
 
@@ -186,8 +263,9 @@ export function App() {
 
   // Account management handlers
   const handleAddAccount = (newAcc: Partial<FinancialAccount>) => {
+    const accId = generateUUID();
     const acc: FinancialAccount = {
-      id: `acc_${Date.now()}`,
+      id: accId,
       user_id: user.id,
       name: newAcc.name || 'Account',
       institution: newAcc.institution || 'Bank',
@@ -195,8 +273,8 @@ export function App() {
       category: newAcc.category || 'cash_bank',
       currency: currency,
       opening_date: newAcc.opening_date || new Date().toISOString().split('T')[0],
-      initial_balance: newAcc.initial_balance || 0,
-      current_balance: newAcc.current_balance || 0,
+      initial_balance: Number(newAcc.initial_balance || 0),
+      current_balance: Number(newAcc.current_balance || 0),
       is_liability: Boolean(newAcc.is_liability),
       interest_rate: newAcc.interest_rate,
       account_number_mask: newAcc.account_number_mask,
@@ -211,8 +289,27 @@ export function App() {
 
     // Cloud sync if Supabase is active
     if (isSupabaseConfigured && supabase && !isDemoMode) {
-      supabase.from('financial_accounts').insert([acc]).then(({ error }) => {
-        if (error) console.error('Cloud account save error:', error);
+      const payload = {
+        id: acc.id,
+        user_id: user.id,
+        name: acc.name,
+        institution: acc.institution,
+        account_type: acc.account_type,
+        category: acc.category,
+        currency: acc.currency,
+        opening_date: acc.opening_date,
+        initial_balance: acc.initial_balance,
+        current_balance: acc.current_balance,
+        is_liability: acc.is_liability,
+        interest_rate: acc.interest_rate || null,
+        account_number_mask: acc.account_number_mask || null,
+        is_archived: false,
+        last_updated: acc.last_updated,
+      };
+
+      supabase.from('financial_accounts').upsert([payload]).then(({ error }) => {
+        if (error) console.error('[Supabase] Account save error:', error);
+        else console.log('[Supabase] Account successfully saved to cloud database!');
       });
     }
   };
@@ -232,7 +329,10 @@ export function App() {
       supabase
         .from('financial_accounts')
         .update({ current_balance: newBalance, last_updated: new Date().toISOString() })
-        .eq('id', id);
+        .eq('id', id)
+        .then(({ error }) => {
+          if (error) console.error('[Supabase] Balance update error:', error);
+        });
     }
   };
 
@@ -244,19 +344,23 @@ export function App() {
     });
 
     if (isSupabaseConfigured && supabase && !isDemoMode) {
-      supabase.from('financial_accounts').delete().eq('id', id);
+      supabase.from('financial_accounts').delete().eq('id', id).then(({ error }) => {
+        if (error) console.error('[Supabase] Account delete error:', error);
+      });
     }
   };
 
   // Transaction management handler (with double counting prevention!)
   const handleAddTransaction = (newTx: Partial<Transaction>) => {
+    const txId = generateUUID();
+    const targetAccountId = newTx.account_id || accounts[0]?.id || '';
     const tx: Transaction = {
-      id: `tx_${Date.now()}`,
+      id: txId,
       user_id: user.id,
-      account_id: newTx.account_id || accounts[0]?.id || '',
+      account_id: targetAccountId,
       to_account_id: newTx.to_account_id,
       type: newTx.type || 'expense',
-      amount: newTx.amount || 0,
+      amount: Number(newTx.amount || 0),
       currency: currency,
       category: newTx.category || 'General',
       description: newTx.description || 'Transaction',
@@ -291,8 +395,24 @@ export function App() {
       return updatedAccs;
     });
 
-    if (isSupabaseConfigured && supabase && !isDemoMode) {
-      supabase.from('transactions').insert([tx]);
+    if (isSupabaseConfigured && supabase && !isDemoMode && isValidUUID(targetAccountId)) {
+      const txPayload = {
+        id: tx.id,
+        user_id: user.id,
+        account_id: targetAccountId,
+        to_account_id: (tx.to_account_id && isValidUUID(tx.to_account_id)) ? tx.to_account_id : null,
+        type: tx.type,
+        amount: tx.amount,
+        currency: tx.currency,
+        category: tx.category,
+        description: tx.description,
+        transaction_date: tx.transaction_date,
+        is_internal_transfer: tx.is_internal_transfer,
+      };
+
+      supabase.from('transactions').upsert([txPayload]).then(({ error }) => {
+        if (error) console.error('[Supabase] Transaction save error:', error);
+      });
     }
   };
 
@@ -355,7 +475,7 @@ export function App() {
     setUser(loggedInUser);
     setIsDemoMode(false);
 
-    // Personal account starts with FRESH data!
+    // Personal account starts with FRESH data (with auto-recovery from legacy keys)!
     const storedAccounts = storageService.getAccounts(uid, false);
     setAccounts(storedAccounts);
     setHoldings(storageService.getHoldings(uid, false));
@@ -363,6 +483,9 @@ export function App() {
     setSalaryHistory(storageService.getSalaryHistory(uid, false));
     setHikePlans(storageService.getHikePlans(uid, false));
     setAssumptions(storageService.getAssumptions(uid, false));
+
+    // Two-way sync with Supabase cloud
+    syncCloudData(uid);
   };
 
   const handleLogout = () => {
