@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Sun, Moon, Bell, Sparkles } from 'lucide-react';
+import { Search, Sun, Moon, Bell } from 'lucide-react';
 import { UserProfile } from '../../types';
 
 interface HeaderProps {
@@ -21,7 +21,6 @@ export const Header: React.FC<HeaderProps> = ({
   onSearchChange,
   onOpenNotifications,
   onOpenAuth,
-  isDemoMode,
 }) => {
   return (
     <header className="w-full flex flex-col md:flex-row items-center justify-between gap-4 pb-6 pt-2">
@@ -30,7 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div 
           onClick={onOpenAuth}
           className="relative cursor-pointer group flex-shrink-0"
-          title="Click to view profile or sign in"
+          title="Click to view profile or sign in / switch account"
         >
           <div className="w-11 h-11 rounded-full p-[2px] bg-gradient-to-tr from-amber-400 via-orange-300 to-amber-200 shadow-sm transition-transform group-hover:scale-105">
             <img
@@ -39,21 +38,11 @@ export const Header: React.FC<HeaderProps> = ({
               className="w-full h-full object-cover rounded-full"
             />
           </div>
-          {isDemoMode && (
-            <span className="absolute -bottom-1 -right-1 px-1.5 py-0.2 text-[9px] font-bold bg-amber-500 text-white rounded-full shadow-sm">
-              DEMO
-            </span>
-          )}
         </div>
 
         <div>
           <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-2">
             Welcome, {user.first_name || 'James'}!
-            {isDemoMode && (
-              <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-100/70 dark:bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-300/40">
-                <Sparkles className="w-3 h-3 text-amber-500" /> Demo Mode
-              </span>
-            )}
           </h1>
         </div>
       </div>

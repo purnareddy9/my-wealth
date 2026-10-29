@@ -43,6 +43,7 @@ import {
   calculateNetWorthSummary,
   calculateAssetAllocation,
 } from './utils/calculations';
+import { supabase, isSupabaseConfigured } from './services/supabase';
 
 export function App() {
   // Theme state
@@ -79,6 +80,47 @@ export function App() {
       document.documentElement.classList.remove('dark');
     }
   }, [theme]);
+
+  // Check for Supabase session on startup
+  useEffect(() => {
+    if (isSupabaseConfigured && supabase) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          const u = session.user;
+          const firstName = u.user_metadata?.first_name || u.email?.split('@')[0] || 'User';
+          setUser({
+            id: u.id,
+            email: u.email || '',
+            full_name: u.user_metadata?.full_name || firstName,
+            first_name: firstName,
+            currency: 'INR',
+            theme: 'light',
+            created_at: u.created_at,
+          });
+          setIsDemoMode(false);
+        }
+      });
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) {
+          const u = session.user;
+          const firstName = u.user_metadata?.first_name || u.email?.split('@')[0] || 'User';
+          setUser({
+            id: u.id,
+            email: u.email || '',
+            full_name: u.user_metadata?.full_name || firstName,
+            first_name: firstName,
+            currency: 'INR',
+            theme: 'light',
+            created_at: u.created_at,
+          });
+          setIsDemoMode(false);
+        }
+      });
+
+      return () => subscription.unsubscribe();
+    }
+  }, []);
 
   // Derived calculations
   const summary = calculateNetWorthSummary(accounts, transactions, assumptions);
