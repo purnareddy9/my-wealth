@@ -28,11 +28,12 @@ export const FinancialForecastCard: React.FC<FinancialForecastCardProps> = ({
     expected_salary_growth_rate: autoHikes ? assumptions.expected_salary_growth_rate : 0,
   };
 
-  const forecast = calculateForecast(currentNetWorth, effectiveAssumptions, horizon, 2500000);
+  const targetGoal = 2500000;
+  const forecast = calculateForecast(currentNetWorth, effectiveAssumptions, horizon, targetGoal);
 
   // Calculate arc angles for the dial (mimicking thermostat 18° to 30°)
   // SVG arc calculation for semi-circle dial
-  const percentage = Math.min(100, Math.max(10, forecast.completionPercentage));
+  const percentage = Math.min(100, Math.max(0, forecast.completionPercentage));
   const strokeDashoffset = 180 - (percentage / 100) * 180;
 
   return (
@@ -99,7 +100,7 @@ export const FinancialForecastCard: React.FC<FinancialForecastCardProps> = ({
             />
           </svg>
 
-          {/* Center Graphic & Reading (replaces cloud with diamond & target net worth) */}
+          {/* Center Graphic & Reading */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none -mt-1">
             <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-100 to-amber-50 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center text-amber-500 shadow-md border border-white/80 dark:border-white/10 mb-1">
               <Sparkles className="w-5 h-5 text-amber-500" />
@@ -115,10 +116,10 @@ export const FinancialForecastCard: React.FC<FinancialForecastCardProps> = ({
             </span>
           </div>
 
-          {/* Min & Max Range Labels (18° & 30° in ref) */}
+          {/* Min & Max Range Labels (dynamically based on current net worth) */}
           <div className="absolute bottom-1 w-full px-6 flex items-center justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400">
-            <span>₹15L Now</span>
-            <span className="text-amber-600 dark:text-amber-400">₹25L Goal</span>
+            <span>{formatCurrency(currentNetWorth, currency, true)} Now</span>
+            <span className="text-amber-600 dark:text-amber-400">{formatCurrency(targetGoal, currency, true)} Goal</span>
           </div>
         </div>
 

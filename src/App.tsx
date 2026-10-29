@@ -139,7 +139,7 @@ export function App() {
 
           // Load cloud accounts
           supabase.from('financial_accounts').select('*').eq('user_id', u.id).then(({ data }) => {
-            if (data && data.length > 0) {
+            if (data) {
               setAccounts(data);
               storageService.saveAccounts(u.id, data, false);
             }
@@ -321,7 +321,23 @@ export function App() {
     setAssumptions(DEMO_ASSUMPTIONS);
   };
 
-  // When a user successfully logs in or registers
+  // Allow loading starter sample template into personal account on demand
+  const handleLoadStarterTemplate = () => {
+    setAccounts(DEMO_ACCOUNTS);
+    setHoldings(DEMO_HOLDINGS);
+    setTransactions(DEMO_TRANSACTIONS);
+    setSalaryHistory(DEMO_SALARY_HISTORY);
+    setHikePlans(DEMO_HIKE_PLANS);
+    setAssumptions(DEMO_ASSUMPTIONS);
+    storageService.saveAccounts(user.id, DEMO_ACCOUNTS, false);
+    storageService.saveHoldings(user.id, DEMO_HOLDINGS, false);
+    storageService.saveTransactions(user.id, DEMO_TRANSACTIONS, false);
+    storageService.saveSalaryHistory(user.id, DEMO_SALARY_HISTORY, false);
+    storageService.saveHikePlans(user.id, DEMO_HIKE_PLANS, false);
+    storageService.saveAssumptions(user.id, DEMO_ASSUMPTIONS, false);
+  };
+
+  // When a user successfully logs in or registers personal account
   const handleAuthSuccess = (email: string, firstName: string, userId?: string) => {
     const uid = userId || `usr_${email.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
     const loggedInUser: UserProfile = {
@@ -339,33 +355,9 @@ export function App() {
     setUser(loggedInUser);
     setIsDemoMode(false);
 
-    // Load or initialize this specific user's private records
+    // Personal account starts with FRESH data!
     const storedAccounts = storageService.getAccounts(uid, false);
-    // If they have no accounts yet, give them a starter account or copy
-    if (storedAccounts.length === 0) {
-      const initialPersonalAccounts: FinancialAccount[] = [
-        {
-          id: `acc_salary_${uid}`,
-          user_id: uid,
-          name: 'Primary Salary Account',
-          institution: 'HDFC / Bank',
-          account_type: 'bank',
-          category: 'cash_bank',
-          currency: 'INR',
-          opening_date: new Date().toISOString().split('T')[0],
-          initial_balance: 100000,
-          current_balance: 100000,
-          is_liability: false,
-          account_number_mask: '•••• 1001',
-          last_updated: new Date().toISOString(),
-        },
-      ];
-      setAccounts(initialPersonalAccounts);
-      storageService.saveAccounts(uid, initialPersonalAccounts, false);
-    } else {
-      setAccounts(storedAccounts);
-    }
-
+    setAccounts(storedAccounts);
     setHoldings(storageService.getHoldings(uid, false));
     setTransactions(storageService.getTransactions(uid, false));
     setSalaryHistory(storageService.getSalaryHistory(uid, false));
@@ -431,6 +423,7 @@ export function App() {
                 onOpenSavings={() => setCurrentTab('salary')}
                 onOpenForecasts={() => setCurrentTab('salary')}
                 onOpenAnalytics={() => setCurrentTab('analytics')}
+                onLoadStarterTemplate={handleLoadStarterTemplate}
               />
             )}
 

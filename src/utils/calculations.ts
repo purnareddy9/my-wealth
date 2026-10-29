@@ -31,16 +31,19 @@ export function calculateNetWorthSummary(
 
   const netWorth = totalAssets - totalLiabilities;
 
-  // Monthly savings calculation based on assumptions or transactions
-  const monthlyTakeHome = assumptions?.monthly_take_home || 115000;
-  const monthlyExpenses = (assumptions?.monthly_living_expenses || 45000) + (assumptions?.monthly_emis || 20000) + (assumptions?.monthly_discretionary || 10000);
+  // If no accounts yet, fresh account has 0 savings/change
+  const hasAccounts = accounts.length > 0;
+  const monthlyTakeHome = hasAccounts ? (assumptions?.monthly_take_home || 115000) : 0;
+  const monthlyExpenses = hasAccounts 
+    ? ((assumptions?.monthly_living_expenses || 45000) + (assumptions?.monthly_emis || 20000) + (assumptions?.monthly_discretionary || 10000))
+    : 0;
   const monthlySavings = Math.max(0, monthlyTakeHome - monthlyExpenses);
-  const monthlySavingsTarget = 50000;
+  const monthlySavingsTarget = hasAccounts ? 50000 : 0;
   const savingsRatePercentage = monthlyTakeHome > 0 ? (monthlySavings / monthlyTakeHome) * 100 : 0;
 
-  // MoM change (demo baseline comparison: +8.4%)
-  const monthOverMonthChange = 116000;
-  const monthOverMonthPercentage = 8.4;
+  // MoM change: 0 for fresh accounts, +8.4% demo baseline when accounts exist
+  const monthOverMonthChange = hasAccounts ? 116000 : 0;
+  const monthOverMonthPercentage = hasAccounts ? 8.4 : 0;
 
   return {
     totalAssets,
@@ -69,7 +72,11 @@ export interface AllocationItem {
 
 export function calculateAssetAllocation(accounts: FinancialAccount[]): AllocationItem[] {
   const activeAccounts = accounts.filter(a => !a.is_archived && !a.is_liability);
-  const totalAssets = activeAccounts.reduce((sum, a) => sum + a.current_balance, 0) || 1;
+  const totalAssets = activeAccounts.reduce((sum, a) => sum + a.current_balance, 0);
+
+  if (totalAssets === 0) {
+    return [];
+  }
 
   const grouped: Record<string, { name: string; value: number; color: string; badgeColor: string }> = {
     equity: { name: 'Stocks & ETFs', value: 0, color: '#3B82F6', badgeColor: 'bg-blue-500' },
@@ -138,12 +145,12 @@ export function calculateForecast(
   };
 
   const months = monthsMap[horizon];
-  const monthlyTakeHome = assumptions.monthly_take_home;
-  const monthlyExpenses = assumptions.monthly_living_expenses + assumptions.monthly_emis + assumptions.monthly_discretionary;
+  const monthlyTakeHome = assumptions.monthly_take_home || 0;
+  const monthlyExpenses = (assumptions.monthly_living_expenses || 0) + (assumptions.monthly_emis || 0) + (assumptions.monthly_discretionary || 0);
   const monthlySavings = Math.max(0, monthlyTakeHome - monthlyExpenses);
 
-  // Expected annual returns on portfolio (e.g., 11% CAGR / 12 months)
-  const monthlyReturnRate = Math.pow(1 + assumptions.expected_investment_return_rate / 100, 1 / 12) - 1;
+  // Expected annual returns on portfolio
+  const monthlyReturnRate = Math.pow(1 + (assumptions.expected_investment_return_rate || 0) / 100, 1 / 12) - 1;
 
   let projectedValue = currentNetWorth;
   const monthlyData: { month: string; netWorth: number; savings: number; projected: boolean }[] = [];
@@ -156,7 +163,7 @@ export function calculateForecast(
     const pastMonthName = pastDate.toLocaleString('default', { month: 'short' });
     monthlyData.push({
       month: pastMonthName,
-      netWorth: Math.round(currentNetWorth - (monthlySavings * i * 0.95)),
+      netWorth: Math.max(0, Math.round(currentNetWorth - (monthlySavings * i * 0.95))),
       savings: monthlySavings,
       projected: false,
     });
@@ -172,7 +179,6 @@ export function calculateForecast(
 
   // Future progression
   for (let m = 1; m <= months; m++) {
-    // Investment compounding + monthly fresh savings addition
     projectedValue = projectedValue * (1 + monthlyReturnRate) + monthlySavings;
 
     if (months <= 12 || m % 3 === 0 || m === months) {
@@ -187,7 +193,7 @@ export function calculateForecast(
     }
   }
 
-  const completionPercentage = Math.min(100, Math.round((projectedValue / goalAmount) * 100));
+  const completionPercentage = goalAmount > 0 ? Math.min(100, Math.round((projectedValue / goalAmount) * 100)) : 0;
 
   // Months to reach goal
   const shortfall = Math.max(0, goalAmount - currentNetWorth);

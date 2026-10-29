@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PieChart as PieIcon, SlidersHorizontal, ArrowUpDown, ChevronRight, Layers } from 'lucide-react';
+import { PieChart as PieIcon, SlidersHorizontal, ArrowUpDown, ChevronRight, Layers, Plus } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Sector } from 'recharts';
 import { AllocationItem } from '../../utils/calculations';
 import { formatCurrency } from '../../utils/formatters';
@@ -85,9 +85,10 @@ export const WealthAllocationCard: React.FC<WealthAllocationCardProps> = ({
     return true;
   });
 
-  const activeItem = hoveredIndex !== null && filteredData[hoveredIndex] 
-    ? filteredData[hoveredIndex] 
-    : filteredData[0] || { name: 'Total Assets', percentage: 100, value: 1800000, color: '#F99D20' };
+  const hasData = filteredData.length > 0;
+  const activeItem = hasData 
+    ? (hoveredIndex !== null && filteredData[hoveredIndex] ? filteredData[hoveredIndex] : filteredData[0])
+    : { name: 'No Assets Yet', percentage: 0, value: 0, color: '#94A3B8' };
 
   return (
     <div className="glass-card rounded-3xl p-5 md:p-6 flex flex-col justify-between h-full relative overflow-hidden">
@@ -147,64 +148,77 @@ export const WealthAllocationCard: React.FC<WealthAllocationCardProps> = ({
 
         {/* Center Donut Dial matching the 80% Intensity dial in reference */}
         <div className="mt-2 relative w-full h-44 flex items-center justify-center">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={filteredData}
-                cx="50%"
-                cy="50%"
-                innerRadius={52}
-                outerRadius={72}
-                paddingAngle={4}
-                dataKey="value"
-                activeIndex={hoveredIndex !== null ? hoveredIndex : undefined}
-                activeShape={renderActiveShape}
-                onMouseEnter={(_, index) => setHoveredIndex(index)}
-                onMouseLeave={() => setHoveredIndex(null)}
-              >
-                {filteredData.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={entry.color}
-                    stroke="rgba(255,255,255,0.8)"
-                    strokeWidth={2}
-                    className="cursor-pointer transition-all"
-                  />
-                ))}
-              </Pie>
-              <Tooltip
-                content={<CustomDonutTooltip currency={currency} />}
-                wrapperStyle={{ outline: 'none', zIndex: 100 }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+          {hasData ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={filteredData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={52}
+                  outerRadius={72}
+                  paddingAngle={4}
+                  dataKey="value"
+                  activeIndex={hoveredIndex !== null ? hoveredIndex : undefined}
+                  activeShape={renderActiveShape}
+                  onMouseEnter={(_, index) => setHoveredIndex(index)}
+                  onMouseLeave={() => setHoveredIndex(null)}
+                >
+                  {filteredData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.color}
+                      stroke="rgba(255,255,255,0.8)"
+                      strokeWidth={2}
+                      className="cursor-pointer transition-all"
+                    />
+                  ))}
+                </Pie>
+                <Tooltip
+                  content={<CustomDonutTooltip currency={currency} />}
+                  wrapperStyle={{ outline: 'none', zIndex: 100 }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="w-36 h-36 rounded-full border-4 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center p-3 text-center">
+              <span className="text-xs font-bold text-slate-400">No Assets Yet</span>
+              <span className="text-[10px] text-slate-400 mt-0.5">Add an account to view allocation</span>
+            </div>
+          )}
 
           {/* Center text in donut dial matching "80% Intensity" */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-            <span className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-50 tracking-tight leading-none transition-all">
-              {activeItem.percentage}%
-            </span>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold truncate max-w-[90px] mt-0.5">
-              {activeItem.name}
-            </span>
-            <span className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold">
-              {formatCurrency(activeItem.value, currency, true)}
-            </span>
-          </div>
+          {hasData && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
+              <span className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-50 tracking-tight leading-none transition-all">
+                {activeItem.percentage}%
+              </span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold truncate max-w-[90px] mt-0.5">
+                {activeItem.name}
+              </span>
+              <span className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold">
+                {formatCurrency(activeItem.value, currency, true)}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Min / Max controls mimicking reference UI */}
         <div className="flex items-center justify-between px-3 text-xs text-slate-400 dark:text-slate-500 font-semibold -mt-1">
           <button 
+            disabled={!hasData}
             onClick={() => setHoveredIndex((prev) => (prev === null || prev === 0 ? filteredData.length - 1 : prev - 1))}
-            className="flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+            className="flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-30 transition-colors"
           >
             <span>Prev</span>
           </button>
-          <span className="text-[10px] text-slate-400">Hover slice to inspect</span>
+          <span className="text-[10px] text-slate-400">
+            {hasData ? 'Hover slice to inspect' : 'Fresh Account'}
+          </span>
           <button 
+            disabled={!hasData}
             onClick={() => setHoveredIndex((prev) => (prev === null || prev >= filteredData.length - 1 ? 0 : prev + 1))}
-            className="flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+            className="flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-30 transition-colors"
           >
             <span>Next</span>
           </button>
