@@ -1,8 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Read from Vite environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// Read from localStorage or Vite environment variables
+const supabaseUrl = 
+  (typeof window !== 'undefined' ? localStorage.getItem('mw_supabase_url') : null) || 
+  import.meta.env.VITE_SUPABASE_URL || 
+  '';
+
+const supabaseAnonKey = 
+  (typeof window !== 'undefined' ? localStorage.getItem('mw_supabase_key') : null) || 
+  import.meta.env.VITE_SUPABASE_ANON_KEY || 
+  '';
 
 export const isSupabaseConfigured = Boolean(
   supabaseUrl && 
@@ -10,7 +17,7 @@ export const isSupabaseConfigured = Boolean(
   supabaseUrl !== 'https://your-project.supabase.co'
 );
 
-// Fallback empty client if not configured yet, so the app never crashes
+// Fallback client so app never crashes
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : (null as unknown as ReturnType<typeof createClient>);

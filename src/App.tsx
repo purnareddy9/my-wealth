@@ -44,6 +44,7 @@ import {
   calculateAssetAllocation,
 } from './utils/calculations';
 import { supabase, isSupabaseConfigured } from './services/supabase';
+import { storageService } from './services/storageService';
 
 export function App() {
   // Theme state
@@ -53,18 +54,53 @@ export function App() {
   const [currentTab, setCurrentTab] = useState<NavTab>('overview');
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('overview');
 
-  // Financial application state
-  const [user, setUser] = useState<UserProfile>(DEMO_USER);
+  // Financial application state - Initialize from storage
+  const [user, setUser] = useState<UserProfile>(() => {
+    return storageService.getActiveUser() || DEMO_USER;
+  });
+
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(() => {
+    return storageService.isDemoMode();
+  });
+
   const [currency, setCurrency] = useState<string>('INR');
-  const [isDemoMode, setIsDemoMode] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  const [accounts, setAccounts] = useState<FinancialAccount[]>(DEMO_ACCOUNTS);
-  const [holdings, setHoldings] = useState<Holding[]>(DEMO_HOLDINGS);
-  const [transactions, setTransactions] = useState<Transaction[]>(DEMO_TRANSACTIONS);
-  const [salaryHistory, setSalaryHistory] = useState<SalaryRecord[]>(DEMO_SALARY_HISTORY);
-  const [hikePlans, setHikePlans] = useState<SalaryHikePlan[]>(DEMO_HIKE_PLANS);
-  const [assumptions, setAssumptions] = useState<SavingsAssumptions>(DEMO_ASSUMPTIONS);
+  const [accounts, setAccounts] = useState<FinancialAccount[]>(() => {
+    const active = storageService.getActiveUser();
+    const isDemo = storageService.isDemoMode();
+    return storageService.getAccounts(active?.id || DEMO_USER.id, isDemo);
+  });
+
+  const [holdings, setHoldings] = useState<Holding[]>(() => {
+    const active = storageService.getActiveUser();
+    const isDemo = storageService.isDemoMode();
+    return storageService.getHoldings(active?.id || DEMO_USER.id, isDemo);
+  });
+
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    const active = storageService.getActiveUser();
+    const isDemo = storageService.isDemoMode();
+    return storageService.getTransactions(active?.id || DEMO_USER.id, isDemo);
+  });
+
+  const [salaryHistory, setSalaryHistory] = useState<SalaryRecord[]>(() => {
+    const active = storageService.getActiveUser();
+    const isDemo = storageService.isDemoMode();
+    return storageService.getSalaryHistory(active?.id || DEMO_USER.id, isDemo);
+  });
+
+  const [hikePlans, setHikePlans] = useState<SalaryHikePlan[]>(() => {
+    const active = storageService.getActiveUser();
+    const isDemo = storageService.isDemoMode();
+    return storageService.getHikePlans(active?.id || DEMO_USER.id, isDemo);
+  });
+
+  const [assumptions, setAssumptions] = useState<SavingsAssumptions>(() => {
+    const active = storageService.getActiveUser();
+    const isDemo = storageService.isDemoMode();
+    return storageService.getAssumptions(active?.id || DEMO_USER.id, isDemo);
+  });
 
   // Modals state
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
@@ -81,14 +117,14 @@ export function App() {
     }
   }, [theme]);
 
-  // Check for Supabase session on startup
+  // Check for Supabase session on startup & sync with cloud
   useEffect(() => {
     if (isSupabaseConfigured && supabase) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session?.user) {
           const u = session.user;
           const firstName = u.user_metadata?.first_name || u.email?.split('@')[0] || 'User';
-          setUser({
+          const loggedInUser: UserProfile = {
             id: u.id,
             email: u.email || '',
             full_name: u.user_metadata?.full_name || firstName,
@@ -96,8 +132,18 @@ export function App() {
             currency: 'INR',
             theme: 'light',
             created_at: u.created_at,
-          });
+          };
+          storageService.setActiveUser(loggedInUser, false);
+          setUser(loggedInUser);
           setIsDemoMode(false);
+
+          // Load cloud accounts
+          supabase.from('financial_accounts').select('*').eq('user_id', u.id).then(({ data }) => {
+            if (data && data.length > 0) {
+              setAccounts(data);
+              storageService.saveAccounts(u.id, data, false);
+            }
+          });
         }
       });
 
@@ -105,7 +151,7 @@ export function App() {
         if (session?.user) {
           const u = session.user;
           const firstName = u.user_metadata?.first_name || u.email?.split('@')[0] || 'User';
-          setUser({
+          const loggedInUser: UserProfile = {
             id: u.id,
             email: u.email || '',
             full_name: u.user_metadata?.full_name || firstName,
@@ -113,7 +159,9 @@ export function App() {
             currency: 'INR',
             theme: 'light',
             created_at: u.created_at,
-          });
+          };
+          storageService.setActiveUser(loggedInUser, false);
+          setUser(loggedInUser);
           setIsDemoMode(false);
         }
       });
@@ -154,21 +202,50 @@ export function App() {
       account_number_mask: newAcc.account_number_mask,
       last_updated: new Date().toISOString(),
     };
-    setAccounts((prev) => [acc, ...prev]);
+
+    setAccounts((prev) => {
+      const updated = [acc, ...prev];
+      storageService.saveAccounts(user.id, updated, isDemoMode);
+      return updated;
+    });
+
+    // Cloud sync if Supabase is active
+    if (isSupabaseConfigured && supabase && !isDemoMode) {
+      supabase.from('financial_accounts').insert([acc]).then(({ error }) => {
+        if (error) console.error('Cloud account save error:', error);
+      });
+    }
   };
 
   const handleUpdateBalance = (id: string, newBalance: number) => {
-    setAccounts((prev) =>
-      prev.map((acc) =>
+    setAccounts((prev) => {
+      const updated = prev.map((acc) =>
         acc.id === id
           ? { ...acc, current_balance: newBalance, last_updated: new Date().toISOString() }
           : acc
-      )
-    );
+      );
+      storageService.saveAccounts(user.id, updated, isDemoMode);
+      return updated;
+    });
+
+    if (isSupabaseConfigured && supabase && !isDemoMode) {
+      supabase
+        .from('financial_accounts')
+        .update({ current_balance: newBalance, last_updated: new Date().toISOString() })
+        .eq('id', id);
+    }
   };
 
   const handleDeleteAccount = (id: string) => {
-    setAccounts((prev) => prev.filter((acc) => acc.id !== id));
+    setAccounts((prev) => {
+      const updated = prev.filter((acc) => acc.id !== id);
+      storageService.saveAccounts(user.id, updated, isDemoMode);
+      return updated;
+    });
+
+    if (isSupabaseConfigured && supabase && !isDemoMode) {
+      supabase.from('financial_accounts').delete().eq('id', id);
+    }
   };
 
   // Transaction management handler (with double counting prevention!)
@@ -188,11 +265,15 @@ export function App() {
       is_internal_transfer: Boolean(newTx.is_internal_transfer),
     };
 
-    setTransactions((prev) => [tx, ...prev]);
+    setTransactions((prev) => {
+      const updatedTx = [tx, ...prev];
+      storageService.saveTransactions(user.id, updatedTx, isDemoMode);
+      return updatedTx;
+    });
 
     // Update account balances automatically without double-counting transfers!
-    setAccounts((prev) =>
-      prev.map((acc) => {
+    setAccounts((prev) => {
+      const updatedAccs = prev.map((acc) => {
         if (acc.id === tx.account_id) {
           // Source account
           if (tx.type === 'expense' || tx.type === 'transfer' || tx.type === 'investment_contribution') {
@@ -205,8 +286,14 @@ export function App() {
           return { ...acc, current_balance: acc.current_balance + tx.amount };
         }
         return acc;
-      })
-    );
+      });
+      storageService.saveAccounts(user.id, updatedAccs, isDemoMode);
+      return updatedAccs;
+    });
+
+    if (isSupabaseConfigured && supabase && !isDemoMode) {
+      supabase.from('transactions').insert([tx]);
+    }
   };
 
   const handleResetData = () => {
@@ -218,16 +305,80 @@ export function App() {
     setAssumptions(DEMO_ASSUMPTIONS);
     setUser(DEMO_USER);
     setIsDemoMode(true);
+    storageService.setActiveUser(DEMO_USER, true);
   };
 
-  const handleAuthSuccess = (email: string, firstName: string) => {
-    setUser((prev) => ({
-      ...prev,
+  // Switch to demo template
+  const handleSwitchToDemo = () => {
+    storageService.setActiveUser(DEMO_USER, true);
+    setUser(DEMO_USER);
+    setIsDemoMode(true);
+    setAccounts(DEMO_ACCOUNTS);
+    setHoldings(DEMO_HOLDINGS);
+    setTransactions(DEMO_TRANSACTIONS);
+    setSalaryHistory(DEMO_SALARY_HISTORY);
+    setHikePlans(DEMO_HIKE_PLANS);
+    setAssumptions(DEMO_ASSUMPTIONS);
+  };
+
+  // When a user successfully logs in or registers
+  const handleAuthSuccess = (email: string, firstName: string, userId?: string) => {
+    const uid = userId || `usr_${email.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+    const loggedInUser: UserProfile = {
+      id: uid,
       email,
-      first_name: firstName,
       full_name: firstName,
-    }));
+      first_name: firstName,
+      currency: 'INR',
+      theme: theme,
+      created_at: new Date().toISOString(),
+    };
+
+    // Save session in localStorage so it survives refresh & new tabs!
+    storageService.setActiveUser(loggedInUser, false);
+    setUser(loggedInUser);
     setIsDemoMode(false);
+
+    // Load or initialize this specific user's private records
+    const storedAccounts = storageService.getAccounts(uid, false);
+    // If they have no accounts yet, give them a starter account or copy
+    if (storedAccounts.length === 0) {
+      const initialPersonalAccounts: FinancialAccount[] = [
+        {
+          id: `acc_salary_${uid}`,
+          user_id: uid,
+          name: 'Primary Salary Account',
+          institution: 'HDFC / Bank',
+          account_type: 'bank',
+          category: 'cash_bank',
+          currency: 'INR',
+          opening_date: new Date().toISOString().split('T')[0],
+          initial_balance: 100000,
+          current_balance: 100000,
+          is_liability: false,
+          account_number_mask: '•••• 1001',
+          last_updated: new Date().toISOString(),
+        },
+      ];
+      setAccounts(initialPersonalAccounts);
+      storageService.saveAccounts(uid, initialPersonalAccounts, false);
+    } else {
+      setAccounts(storedAccounts);
+    }
+
+    setHoldings(storageService.getHoldings(uid, false));
+    setTransactions(storageService.getTransactions(uid, false));
+    setSalaryHistory(storageService.getSalaryHistory(uid, false));
+    setHikePlans(storageService.getHikePlans(uid, false));
+    setAssumptions(storageService.getAssumptions(uid, false));
+  };
+
+  const handleLogout = () => {
+    if (isSupabaseConfigured && supabase) {
+      supabase.auth.signOut();
+    }
+    storageService.logout();
+    handleSwitchToDemo();
   };
 
   return (
@@ -308,8 +459,17 @@ export function App() {
                 hikePlans={hikePlans}
                 assumptions={assumptions}
                 currency={currency}
-                onUpdateAssumptions={setAssumptions}
-                onAddHikePlan={(plan) => setHikePlans((prev) => [plan as SalaryHikePlan, ...prev])}
+                onUpdateAssumptions={(newAssump) => {
+                  setAssumptions(newAssump);
+                  storageService.saveAssumptions(user.id, newAssump, isDemoMode);
+                }}
+                onAddHikePlan={(plan) => {
+                  setHikePlans((prev) => {
+                    const updated = [plan as SalaryHikePlan, ...prev];
+                    storageService.saveHikePlans(user.id, updated, isDemoMode);
+                    return updated;
+                  });
+                }}
               />
             )}
 
@@ -378,10 +538,7 @@ export function App() {
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
         onSuccess={handleAuthSuccess}
-        onSwitchToDemo={() => {
-          setIsDemoMode(true);
-          setUser(DEMO_USER);
-        }}
+        onSwitchToDemo={handleSwitchToDemo}
         isDemoMode={isDemoMode}
       />
     </div>
