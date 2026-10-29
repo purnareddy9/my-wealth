@@ -31,9 +31,14 @@ export const FinancialForecastCard: React.FC<FinancialForecastCardProps> = ({
   const targetGoal = 2500000;
   const forecast = calculateForecast(currentNetWorth, effectiveAssumptions, horizon, targetGoal);
 
+  const isFresh = currentNetWorth === 0 && (!assumptions.monthly_take_home || assumptions.monthly_take_home === 0);
+  const displayProjected = isFresh ? 0 : forecast.projectedNetWorth;
+  const displaySurplus = isFresh ? 0 : forecast.monthlySurplus;
+  const displayMilestone = isFresh ? 'Configure income in Settings' : forecast.estimatedCompletionDate;
+
   // Calculate arc angles for the dial (mimicking thermostat 18° to 30°)
   // SVG arc calculation for semi-circle dial
-  const percentage = Math.min(100, Math.max(0, forecast.completionPercentage));
+  const percentage = isFresh ? 0 : Math.min(100, Math.max(0, forecast.completionPercentage));
   const strokeDashoffset = 180 - (percentage / 100) * 180;
 
   return (
@@ -108,7 +113,7 @@ export const FinancialForecastCard: React.FC<FinancialForecastCardProps> = ({
 
             <div className="flex items-baseline gap-1">
               <span className="text-2xl font-black text-slate-800 dark:text-slate-50 tracking-tight">
-                {formatCurrency(forecast.projectedNetWorth, currency, true)}
+                {formatCurrency(displayProjected, currency, true)}
               </span>
             </div>
             <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
@@ -168,12 +173,12 @@ export const FinancialForecastCard: React.FC<FinancialForecastCardProps> = ({
       >
         <div>
           <div className="text-base font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-            <span>{formatCurrency(forecast.monthlySurplus, currency)}</span>
+            <span>{formatCurrency(displaySurplus, currency)}</span>
             <span className="text-xs text-slate-400 font-medium">/ month</span>
           </div>
           <div className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1 mt-0.5">
             <TrendingUp className="w-3 h-3" />
-            <span>Target milestone: {forecast.estimatedCompletionDate}</span>
+            <span>Target milestone: {displayMilestone}</span>
           </div>
         </div>
 

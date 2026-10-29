@@ -146,7 +146,15 @@ export const InvestmentsView: React.FC<InvestmentsViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredHoldings.map((h) => {
+              {filteredHoldings.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                    <p className="font-semibold text-sm">No investment holdings recorded</p>
+                    <p className="text-xs mt-1">Import a broker CSV or link your Demat/SIP accounts to see your portfolio breakdown.</p>
+                  </td>
+                </tr>
+              ) : (
+                filteredHoldings.map((h) => {
                 const isPositive = h.unrealized_pnl >= 0;
 
                 return (
@@ -197,7 +205,7 @@ export const InvestmentsView: React.FC<InvestmentsViewProps> = ({
                     </td>
                   </tr>
                 );
-              })}
+              }))}
             </tbody>
           </table>
         </div>

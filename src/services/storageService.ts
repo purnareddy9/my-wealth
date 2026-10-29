@@ -17,6 +17,18 @@ import {
   DEMO_USER 
 } from './demoData';
 
+export const DEFAULT_PERSONAL_ASSUMPTIONS: SavingsAssumptions = {
+  monthly_take_home: 0,
+  monthly_living_expenses: 0,
+  monthly_emis: 0,
+  monthly_discretionary: 0,
+  monthly_investments: 0,
+  expected_annual_bonus: 0,
+  expected_salary_growth_rate: 8.0,
+  expected_investment_return_rate: 11.0,
+  inflation_rate: 6.0,
+};
+
 const SESSION_KEY = 'my_wealth_session_user';
 const IS_DEMO_KEY = 'my_wealth_is_demo';
 
@@ -170,7 +182,7 @@ export const storageService = {
     } catch (e) {
       console.error('Error loading assumptions', e);
     }
-    return DEMO_ASSUMPTIONS;
+    return DEFAULT_PERSONAL_ASSUMPTIONS;
   },
 
   saveAssumptions(userId: string, assumptions: SavingsAssumptions, isDemo: boolean) {

@@ -98,8 +98,11 @@ export const SalaryForecastView: React.FC<SalaryForecastViewProps> = ({
   onAddHikePlan,
 }) => {
   // Scenario state
-  const currentJob = salaryHistory.find(s => s.is_current) || salaryHistory[0];
-  const [currentCTC, setCurrentCTC] = useState<number>(currentJob ? currentJob.annual_ctc : 2400000);
+  const hasHistory = salaryHistory.length > 0;
+  const currentJob = salaryHistory.find(s => s.is_current) || (hasHistory ? salaryHistory[0] : null);
+  const [currentCTC, setCurrentCTC] = useState<number>(
+    currentJob ? currentJob.annual_ctc : (assumptions.monthly_take_home ? assumptions.monthly_take_home * 14 : 1200000)
+  );
   const [hikePercentage, setHikePercentage] = useState<number>(18);
   const [isJobChange, setIsJobChange] = useState<boolean>(false);
   const [targetEmployer, setTargetEmployer] = useState<string>('Tier-1 Tech Unicorn');
@@ -125,12 +128,20 @@ export const SalaryForecastView: React.FC<SalaryForecastViewProps> = ({
   const totalMonthlySavings = netRemainingCash + investments;
 
   // Chart data: Salary progression over time (Historical Actuals + Future Projection)
-  const salaryProgressionData = [
-    { year: '2020 (Innovate Labs)', ctc: 1100000, takeHome: 72000, type: 'actual' },
-    { year: '2022 (TechCorp)', ctc: 1800000, takeHome: 108000, type: 'actual' },
-    { year: '2024 (Google)', ctc: 2400000, takeHome: 135000, type: 'actual' },
-    { year: '2027 (Projected Hike)', ctc: Math.round(projectedCTC), takeHome: projectedMonthlyTakeHome, type: 'projected' },
-  ];
+  const salaryProgressionData = hasHistory
+    ? [
+        ...salaryHistory.map((s) => ({
+          year: `${s.start_date.split('-')[0]} (${s.employer})`,
+          ctc: s.annual_ctc,
+          takeHome: s.monthly_take_home,
+          type: 'actual',
+        })),
+        { year: 'Next Hike (Projected)', ctc: Math.round(projectedCTC), takeHome: projectedMonthlyTakeHome, type: 'projected' },
+      ]
+    : [
+        { year: 'Current Estimate', ctc: currentCTC, takeHome: Math.round((currentCTC / 12) * 0.78), type: 'actual' },
+        { year: 'Next Hike (Projected)', ctc: Math.round(projectedCTC), takeHome: projectedMonthlyTakeHome, type: 'projected' },
+      ];
 
   // Multi-horizon savings projection data
   const savingsProjectionData = [

@@ -101,7 +101,15 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filtered.map((tx) => {
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-slate-400">
+                    <p className="font-semibold text-sm">No transactions recorded yet</p>
+                    <p className="text-xs mt-1">Record your first salary credit, SIP investment, or expense to populate the ledger.</p>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((tx) => {
                 const acc = accountMap.get(tx.account_id);
                 const toAcc = tx.to_account_id ? accountMap.get(tx.to_account_id) : null;
 
@@ -179,7 +187,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                     </td>
                   </tr>
                 );
-              })}
+              }))}
             </tbody>
           </table>
         </div>
