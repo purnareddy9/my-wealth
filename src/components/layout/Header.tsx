@@ -1,6 +1,8 @@
 import React from 'react';
 import { Search, Sun, Moon, Bell } from 'lucide-react';
 import { UserProfile } from '../../types';
+import { DbHealthStatus } from '../../services/supabase';
+import { DbStatusBadge } from '../common/DbStatusBadge';
 
 interface HeaderProps {
   user: UserProfile;
@@ -11,6 +13,8 @@ interface HeaderProps {
   onOpenNotifications: () => void;
   onOpenAuth: () => void;
   isDemoMode: boolean;
+  dbStatus?: DbHealthStatus;
+  onOpenDbModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -21,6 +25,8 @@ export const Header: React.FC<HeaderProps> = ({
   onSearchChange,
   onOpenNotifications,
   onOpenAuth,
+  dbStatus,
+  onOpenDbModal,
 }) => {
   return (
     <header className="w-full flex flex-col md:flex-row items-center justify-between gap-4 pb-6 pt-2">
@@ -69,8 +75,17 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Right: Theme Toggle pill & Notifications */}
-      <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+      {/* Right: DB Status + Theme Toggle pill & Notifications */}
+      <div className="flex items-center gap-2.5 w-full md:w-auto justify-end flex-wrap">
+        {/* Real-time DB Connect Status Pill */}
+        {dbStatus && onOpenDbModal && (
+          <DbStatusBadge
+            status={dbStatus}
+            onClick={onOpenDbModal}
+            variant="compact"
+          />
+        )}
+
         {/* Exact Light/Dark Toggle Pill from reference */}
         <div className="flex items-center bg-white/45 dark:bg-slate-800/55 p-1 rounded-full border border-white/70 dark:border-white/10 shadow-sm backdrop-blur-md text-xs font-medium">
           <button

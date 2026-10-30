@@ -19,6 +19,7 @@ import { AddAccountModal } from './components/modals/AddAccountModal';
 import { AddTransactionModal } from './components/modals/AddTransactionModal';
 import { CsvImportModal } from './components/modals/CsvImportModal';
 import { AuthModal } from './components/auth/AuthModal';
+import { DbConnectionModal } from './components/modals/DbConnectionModal';
 
 // Types & Services
 import {
@@ -43,7 +44,14 @@ import {
   calculateNetWorthSummary,
   calculateAssetAllocation,
 } from './utils/calculations';
-import { supabase, isSupabaseConfigured, generateUUID, isValidUUID } from './services/supabase';
+import { 
+  supabase, 
+  isSupabaseConfigured, 
+  generateUUID, 
+  isValidUUID, 
+  testDatabaseConnection, 
+  DbHealthStatus 
+} from './services/supabase';
 import { storageService } from './services/storageService';
 
 export function App() {
@@ -107,6 +115,36 @@ export function App() {
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
   const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isDbModalOpen, setIsDbModalOpen] = useState(false);
+
+  // Real-time Database connection health status
+  const [dbStatus, setDbStatus] = useState<DbHealthStatus>({
+    state: isSupabaseConfigured ? 'checking' : 'local_vault',
+    label: isSupabaseConfigured ? 'Connecting DB...' : 'Local Vault',
+    sublabel: isSupabaseConfigured ? 'Verifying Cloud' : 'Offline Storage',
+    color: isSupabaseConfigured ? 'amber' : 'slate',
+    message: isSupabaseConfigured ? 'Connecting to Supabase PostgreSQL...' : 'Offline browser vault active.',
+    tablesExist: false,
+  });
+
+  const refreshDbStatus = async () => {
+    try {
+      const res = await testDatabaseConnection();
+      setDbStatus(res);
+      return res;
+    } catch {
+      const fallback: DbHealthStatus = {
+        state: 'error',
+        label: 'DB: Offline',
+        sublabel: 'Network Error',
+        color: 'rose',
+        message: 'Could not connect to database endpoint.',
+        tablesExist: false,
+      };
+      setDbStatus(fallback);
+      return fallback;
+    }
+  };
 
   // Synchronize dark mode class on document
   useEffect(() => {
@@ -116,6 +154,11 @@ export function App() {
       document.documentElement.classList.remove('dark');
     }
   }, [theme]);
+
+  // Initial DB connection health check
+  useEffect(() => {
+    refreshDbStatus();
+  }, []);
 
   // Two-way synchronization with Supabase cloud
   const syncCloudData = async (userId: string) => {
@@ -195,6 +238,8 @@ export function App() {
       }
     } catch (e) {
       console.warn('[CloudSync] Background sync exception:', e);
+    } finally {
+      refreshDbStatus();
     }
   };
 
@@ -513,6 +558,8 @@ export function App() {
           onOpenNotifications={() => alert('All accounts synchronized. No security alerts pending.')}
           onOpenAuth={() => setIsAuthOpen(true)}
           isDemoMode={isDemoMode}
+          dbStatus={dbStatus}
+          onOpenDbModal={() => setIsDbModalOpen(true)}
         />
 
         {/* Dashboard Body: Sidebar + Main Inner Panel */}
@@ -558,6 +605,8 @@ export function App() {
                 onOpenCsvImport={() => setIsCsvImportOpen(true)}
                 onUpdateBalance={handleUpdateBalance}
                 onDeleteAccount={handleDeleteAccount}
+                dbStatus={dbStatus}
+                onOpenDbModal={() => setIsDbModalOpen(true)}
               />
             )}
 
@@ -659,6 +708,14 @@ export function App() {
         onLogout={handleLogout}
         isDemoMode={isDemoMode}
         user={user}
+      />
+
+      <DbConnectionModal
+        isOpen={isDbModalOpen}
+        onClose={() => setIsDbModalOpen(false)}
+        status={dbStatus}
+        onRefreshStatus={refreshDbStatus}
+        onTriggerSync={() => syncCloudData(user.id)}
       />
     </div>
   );

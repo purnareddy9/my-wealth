@@ -46,24 +46,83 @@ export function getSupabaseConfig() {
   };
 }
 
-export async function testDatabaseConnection(): Promise<{ ok: boolean; message: string; tablesExist: boolean }> {
+export interface DbHealthStatus {
+  state: 'connected' | 'needs_migration' | 'error' | 'local_vault' | 'checking';
+  label: string;
+  sublabel: string;
+  color: 'emerald' | 'amber' | 'rose' | 'slate';
+  message: string;
+  tablesExist: boolean;
+  latencyMs?: number;
+  url?: string;
+}
+
+export async function testDatabaseConnection(): Promise<DbHealthStatus> {
   if (!isSupabaseConfigured || !supabase) {
-    return { ok: false, message: 'Supabase URL or Anon Key not configured (using local vault)', tablesExist: false };
+    return {
+      state: 'local_vault',
+      label: 'Local Vault',
+      sublabel: 'Offline Storage',
+      color: 'slate',
+      message: 'Supabase URL/Key not set. Using secure browser storage vault.',
+      tablesExist: false,
+      url: supabaseUrl || undefined,
+    };
   }
+
+  const startTime = Date.now();
   try {
     const { error } = await supabase.from('financial_accounts').select('id').limit(1);
+    const latency = Date.now() - startTime;
+
     if (error) {
-      if (error.code === '42P01' || error.message?.includes('relation "public.financial_accounts" does not exist')) {
+      if (
+        error.code === '42P01' || 
+        error.message?.includes('relation "public.financial_accounts" does not exist') ||
+        error.message?.includes('does not exist')
+      ) {
         return { 
-          ok: true, 
-          message: 'Connected to Supabase, but tables are not created yet! Copy and run the migration SQL in your Supabase SQL Editor.', 
-          tablesExist: false 
+          state: 'needs_migration',
+          label: 'DB: Tables Missing',
+          sublabel: 'Run Migration SQL',
+          color: 'amber',
+          message: 'Connected to Supabase, but PostgreSQL tables are not created yet. Run the SQL script in your Supabase SQL Editor.', 
+          tablesExist: false,
+          latencyMs: latency,
+          url: supabaseUrl,
         };
       }
-      return { ok: false, message: error.message || 'Database error occurred', tablesExist: false };
+      return { 
+        state: 'error',
+        label: 'DB: Error',
+        sublabel: 'Auth / Permission Issue',
+        color: 'rose',
+        message: error.message || 'Database query error occurred', 
+        tablesExist: false,
+        latencyMs: latency,
+        url: supabaseUrl,
+      };
     }
-    return { ok: true, message: 'Database connected and tables verified!', tablesExist: true };
+
+    return { 
+      state: 'connected',
+      label: 'Cloud DB Connected',
+      sublabel: 'Supabase Synced',
+      color: 'emerald',
+      message: `Successfully connected to Supabase PostgreSQL in ${latency}ms! Tables verified.`, 
+      tablesExist: true,
+      latencyMs: latency,
+      url: supabaseUrl,
+    };
   } catch (e: unknown) {
-    return { ok: false, message: e instanceof Error ? e.message : 'Connection failed', tablesExist: false };
+    return { 
+      state: 'error',
+      label: 'DB: Disconnected',
+      sublabel: 'Network Error',
+      color: 'rose',
+      message: e instanceof Error ? e.message : 'Database connection failed', 
+      tablesExist: false,
+      url: supabaseUrl,
+    };
   }
 }

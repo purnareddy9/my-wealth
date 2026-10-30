@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Plus, Upload, Landmark, Edit3, Trash2, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { FinancialAccount } from '../../types';
 import { formatCurrency, formatDate } from '../../utils/formatters';
+import { DbHealthStatus } from '../../services/supabase';
+import { DbStatusBadge } from '../common/DbStatusBadge';
 
 interface AccountsViewProps {
   accounts: FinancialAccount[];
@@ -10,6 +12,8 @@ interface AccountsViewProps {
   onOpenCsvImport: () => void;
   onUpdateBalance: (id: string, newBalance: number) => void;
   onDeleteAccount: (id: string) => void;
+  dbStatus?: DbHealthStatus;
+  onOpenDbModal?: () => void;
 }
 
 export const AccountsView: React.FC<AccountsViewProps> = ({
@@ -19,6 +23,8 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
   onOpenCsvImport,
   onUpdateBalance,
   onDeleteAccount,
+  dbStatus,
+  onOpenDbModal,
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBalanceVal, setEditBalanceVal] = useState<string>('');
@@ -58,10 +64,19 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
       {/* Top Banner with Actions */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-            Accounts &amp; Liabilities
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
+              Accounts &amp; Liabilities
+            </h2>
+            {dbStatus && onOpenDbModal && (
+              <DbStatusBadge
+                status={dbStatus}
+                onClick={onOpenDbModal}
+                variant="full"
+              />
+            )}
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Track bank balances, investments, retirement funds, and loans
           </p>
         </div>
